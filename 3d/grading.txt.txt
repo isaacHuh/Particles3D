@@ -1,0 +1,3 @@
+- Diffuse Map
+- Specular Map
+- Normal Map

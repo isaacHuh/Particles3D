@@ -1,0 +1,27 @@
+﻿  project1.cpp
+C:\Users\Isaac Torres PC\source\repos\3d\project1\project1.cpp(221,1): warning C4267: '=': conversion from 'size_t' to 'GLsizei', possible loss of data
+C:\Users\Isaac Torres PC\source\repos\3d\project1\project1.cpp(320,20): warning C4244: 'argument': conversion from 'float' to 'GLint', possible loss of data
+C:\Users\Isaac Torres PC\source\repos\3d\project1\project1.cpp(320,14): warning C4244: 'argument': conversion from 'float' to 'GLint', possible loss of data
+C:\Users\Isaac Torres PC\source\repos\3d\project1\project1.cpp(624,52): warning C4267: 'argument': conversion from 'size_t' to 'GLsizei', possible loss of data
+C:\Users\Isaac Torres PC\source\repos\3d\project1\project1.cpp(671,25): warning C4305: '+=': truncation from 'double' to '_Ty'
+          with
+          [
+              _Ty=GLfloat
+          ]
+C:\Users\Isaac Torres PC\source\repos\3d\project1\project1.cpp(677,25): warning C4305: '-=': truncation from 'double' to '_Ty'
+          with
+          [
+              _Ty=GLfloat
+          ]
+C:\Users\Isaac Torres PC\source\repos\3d\project1\project1.cpp(683,25): warning C4305: '+=': truncation from 'double' to '_Ty'
+          with
+          [
+              _Ty=GLfloat
+          ]
+C:\Users\Isaac Torres PC\source\repos\3d\project1\project1.cpp(689,25): warning C4305: '-=': truncation from 'double' to '_Ty'
+          with
+          [
+              _Ty=GLfloat
+          ]
+C:\Users\Isaac Torres PC\source\repos\3d\project1\project1.cpp(720,16): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+  project1.vcxproj -> C:\Users\Isaac Torres PC\source\repos\3d\x64\Debug\project1.exe
