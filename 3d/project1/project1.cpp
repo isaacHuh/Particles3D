@@ -338,14 +338,16 @@ struct Particle {
 	glm::vec3 velocity;
 	Model model;
 	Transform transform;
+	string type = "sand";
 
-	Particle(Model model, glm::vec3 position, glm::vec3 scale, glm::vec3 velocity) {
+	Particle(Model model, glm::vec3 position, glm::vec3 scale, glm::vec3 velocity, string type) {
 		this->transform.position = position;
 		this->transform.scale = scale;
 		this->model = model;
 		//this->world_from_model = glm::scale(this->world_from_model, scale);
 		this->world_from_model = glm::translate(glm::mat4(1), position);
 		this->velocity = velocity;
+		this->type = type;
 	}
 };
 
@@ -422,7 +424,7 @@ GLuint compile_shader() {
 		"	// Light settings etc\n"
 		"	vec3 light_dir = lightPos;\n"
 		"	vec3 light_color = 0.75 * vec3(1.0, 1.0, 1.0);\n"
-		"	vec3 specular_color = 0.1 * vec3(1.0, 1.0, 1.0);\n"
+		"	vec3 specular_color = 0.2 * vec3(1.0, 1.0, 1.0);\n"
 		"	vec3 normal = vec3(texture(normal_map, Texcoords));\n"
 		"	normal = normal * 2.0 - 1.0;\n"
 		"	normal = TBN * normal;\n"
@@ -556,6 +558,113 @@ GLuint load_textures(GLenum active_texture, const char *filename) {
 	return tex;
 }
 
+bool object_at_point(vector<Particle>& particles, glm::vec3 pos) {
+	//maybe use distance
+	for (int i = 0; i < particles.size(); i++) {
+		if (particles[i].transform.position == pos) {
+			return true;
+		}
+	}
+	return false;
+}
+
+void particles_move_collision(vector<Particle> &particles) {
+	for (int i = 0; i < particles.size(); i++) {
+		if (!particles[i].moving) {
+			continue;
+		}
+		if (particles[i].transform.position.y <= -16.0f) {
+			particles[i].moving = false;
+			continue;
+		}
+
+		glm::vec3 newPos = particles[i].transform.position + particles[i].velocity;
+		bool collide = false;
+
+
+		for (int j = 0; j < particles.size(); j++) {
+			if (j == i) {
+				continue;
+			}
+
+			glm::vec3 a = newPos;
+			glm::vec3 b = particles[j].transform.position;
+
+			float dist = sqrt(pow(a.x - b.x, 2.0) + pow(a.y - b.y, 2.0) + pow(a.z - b.z, 2.0));
+			//cout << dist << endl;
+			if (dist < 2.0f) {
+				collide = true;
+
+				glm::vec3 newPosPlus = particles[i].transform.position;
+
+				//go down pyramid if sand
+				if (!object_at_point(particles, newPos + glm::vec3(-2.0f, 0.0f, 0.0f))) {
+					newPosPlus = newPos + glm::vec3(-2.0f, 0.0f, 0.0f);
+				}
+				else if (!object_at_point(particles, newPos + glm::vec3(2.0f, 0.0f, 0.0f))) {
+					newPosPlus = newPos + glm::vec3(2.0f, 0.0f, 0.0f);
+				}
+				else if (!object_at_point(particles, newPos + glm::vec3(0.0f, 0.0f, 2.0f))) {
+					newPosPlus = newPos + glm::vec3(0.0f, 0.0f, 2.0f);
+				}
+				else if (!object_at_point(particles, newPos + glm::vec3(0.0f, 0.0f, -2.0f))) {
+					newPosPlus = newPos + glm::vec3(0.0f, 0.0f, -2.0f);
+				}
+				
+				
+				if(newPosPlus == particles[i].transform.position || abs(newPosPlus.x) > 6 || abs(newPosPlus.z) > 6){
+
+					//additional checks if water
+					if (particles[i].type == "water") {
+						//check direction at random
+						int dir = (int)RandomFloat(0.0f,5.0f);
+						switch (dir) {
+							case 0:
+								if (!object_at_point(particles, newPos + glm::vec3(-2.0f, 2.0f, 0.0f))) {
+									newPosPlus = newPos + glm::vec3(-2.0f, 2.0f, 0.0f);
+								}
+								break;
+							case 1:
+								if (!object_at_point(particles, newPos + glm::vec3(2.0f, 2.0f, 0.0f))) {
+									newPosPlus = newPos + glm::vec3(2.0f, 2.0f, 0.0f);
+								}
+								break;
+							case 2:
+								if (!object_at_point(particles, newPos + glm::vec3(0.0f, 2.0f, 2.0f))) {
+									newPosPlus = newPos + glm::vec3(0.0f, 2.0f, 2.0f);
+								}
+								break;
+							case 3:
+								if (!object_at_point(particles, newPos + glm::vec3(0.0f, 2.0f, -2.0f))) {
+									newPosPlus = newPos + glm::vec3(0.0f, 2.0f, -2.0f);
+								}
+								break;
+						}
+					}
+				}
+
+				if (abs(newPosPlus.x) <= 6 && abs(newPosPlus.z) <= 6) {
+					particles[i].transform.position = newPosPlus;
+				}
+
+				break;
+			}
+		}
+
+		if (!collide) {
+			particles[i].transform.position = newPos;
+		}
+		//particles[i].world_from_model = glm::translate(glm::mat4(1), particles[i].transform.position);
+		//particles[i].world_from_model = glm::translate(particles[i].world_from_model, particles[i].velocity);
+	}
+}
+
+void particles_move(vector<Particle>& particles) {
+	for (int i = 0; i < particles.size(); i++) {
+		particles[i].transform.position += particles[i].velocity;
+	}
+}
+
 void render_scene(GLuint& shader_program, GLFWwindow* window, vector<Particle> particles, Camera camera) {
 	// Set the clear color
 	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -594,6 +703,16 @@ void render_scene(GLuint& shader_program, GLFWwindow* window, vector<Particle> p
 	);
 
 	for (int i = 0; i < particles.size(); i++) {
+		if (particles[i].type == "water") {
+			glUniform1i(diffuse_map_location, 0);
+			glUniform1i(specular_map_location, 1);
+			glUniform1i(normal_map_location, 2);
+		}
+		else {
+			glUniform1i(diffuse_map_location, 3);
+			glUniform1i(specular_map_location, 4);
+			glUniform1i(normal_map_location, 5);
+		}
 
 		particles[i].world_from_model = glm::translate(glm::mat4(1), particles[i].transform.position);
 
@@ -651,88 +770,94 @@ int main(void) {
 	models.push_back(Model::load(string("normals/monkey-normals.obj")));
 	
 	vector<Particle> particles;
-	particles.push_back(Particle(models[0], glm::vec3(0.0f, 2.0f, -5.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, -RandomFloat(0.005f, 0.02f), 0.0f)));
-	particles.push_back(Particle(models[0], glm::vec3(0.0f, -2.0f, -5.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, -RandomFloat(0.005f, 0.02f), 0.0f)));
-	particles.push_back(Particle(models[0], glm::vec3(3.0f, 2.0f, -5.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, -RandomFloat(0.005f, 0.02f), 0.0f)));
-	particles.push_back(Particle(models[0], glm::vec3(3.0f, -2.0f, -5.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, -RandomFloat(0.005f, 0.02f), 0.0f)));
+	//particles.push_back(Particle(models[0], glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, -RandomFloat(0.005f, 0.05f), 0.0f)));
+	/*
+	particles.push_back(Particle(models[0], glm::vec3(0.0f, -2.0f, -5.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, -RandomFloat(0.005f, 0.05f), 0.0f)));
+
+	particles.push_back(Particle(models[0], glm::vec3(3.0f, 2.0f, -5.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, -RandomFloat(0.005f, 0.05f), 0.0f)));
+	particles.push_back(Particle(models[0], glm::vec3(3.0f, -2.0f, -5.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, -RandomFloat(0.005f, 0.05f), 0.0f)));
+
+	particles.push_back(Particle(models[0], glm::vec3(-3.0f, 4.0f, -5.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, -RandomFloat(0.005f, 0.05f), 0.0f)));
+	particles.push_back(Particle(models[0], glm::vec3(-3.0f, 0.0f, -5.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, -RandomFloat(0.005f, 0.05f), 0.0f)));
+	*/
 
 	vector<GLuint> textures;
-	textures.push_back(load_textures(GL_TEXTURE0, "./Rock/RockColor.jpg"));
-	textures.push_back(load_textures(GL_TEXTURE1, "./Rock/RockRoughness.jpg"));
-	textures.push_back(load_textures(GL_TEXTURE2, "./Rock/RockNormal.jpg"));
+	textures.push_back(load_textures(GL_TEXTURE0, "./Water/WaterColor.jpg"));
+	textures.push_back(load_textures(GL_TEXTURE1, "./Water/WaterSpec.jpg"));
+	textures.push_back(load_textures(GL_TEXTURE2, "./Water/WaterNormal.jpg"));
+	textures.push_back(load_textures(GL_TEXTURE3, "./brick_color.jpg"));
+	textures.push_back(load_textures(GL_TEXTURE4, "./brick_spec.jpg"));
+	textures.push_back(load_textures(GL_TEXTURE5, "./brick_normal.jpg"));
 
 	Camera camera;
-	camera.camera_from_world = glm::translate(camera.camera_from_world, glm::vec3(0.0f, 0.0f, -5.0f));
+	camera.camera_from_world = glm::translate(camera.camera_from_world, glm::vec3(0.0f, 2.0f, -40.0f));
+
 	//glm::mat4 world_from_model = glm::mat4(1.0); // init to the identity matrix
-
-	while (!glfwWindowShouldClose(window)) {
-		if (glfwGetKey(window, GLFW_KEY_D)) {
-			if (lightPos[0] < 1.0) {
-				lightPos[0] += 0.005;
-			}
-		}
-
-		if (glfwGetKey(window, GLFW_KEY_A)) {
-			if (lightPos[0] > -1.0) {
-				lightPos[0] -= 0.005;
-			}
-		}
-
-		if (glfwGetKey(window, GLFW_KEY_W)) {
-			if (lightPos[1] < 1.0) {
-				lightPos[1] += 0.005;
-			}
-		}
-
+	
+	int count = 0;
+	bool pressed = false;
+	string type = "sand";
+	while (!glfwWindowShouldClose(window)) {  
+		/*
 		if (glfwGetKey(window, GLFW_KEY_S)) {
 			if (lightPos[1] > -1.0) {
 				lightPos[1] -= 0.005;
+			} 
+		}*/
+
+		if (glfwGetKey(window, GLFW_KEY_1)) {
+			type = "sand";
+			cout << type << endl;
+		}
+		if (glfwGetKey(window, GLFW_KEY_2)) {
+			type = "water";
+			cout << type << endl;
+		}
+
+		if (glfwGetKey(window, GLFW_KEY_SPACE)) {
+			if (!pressed) {
+				cout << "spawn" << endl;
+				
+				particles.push_back(Particle(models[0],
+					//glm::vec3((int)RandomFloat(-5.0f, 5.0f)*2.0, 15.0f, (int)RandomFloat(-5.0f, 5.0f) * 2.0),
+					glm::vec3(0.0f, 16.0f, 0.0f),
+					glm::vec3(1.0f, 1.0f, 1.0f),
+					glm::vec3(0.0f, -2.0f, 0.0f),
+					type));
+				
+
+				/*
+				particles.push_back(Particle(models[0],
+					glm::vec3(0.0f, 0.0f, -5.0f),
+					glm::vec3(1.0f, 1.0f, 1.0f),
+					glm::vec3(RandomFloat(-0.005f, 0.005f), RandomFloat(0.001f, 0.01f), RandomFloat(-0.001f, 0.001f))));
+				*/
+				pressed = true;
 			}
+		}
+		else 
+		{
+			pressed = false;
 		}
 
 		GLint light_location = glGetUniformLocation(shader_program, "lightPos");
 		glUniform3f(light_location, lightPos[0], lightPos[1], lightPos[2]);
 
 		//camera.camera_from_world = glm::translate(camera.camera_from_world, glm::vec3(0.0f, 0.0f, 0.0001f));
-		//camera.camera_from_world = glm::rotate(camera.camera_from_world, 0.001f, glm::vec3(0.0f, 1.0f, 0.0f));
+
+		if (glfwGetKey(window, GLFW_KEY_RIGHT)) {
+			camera.camera_from_world = glm::rotate(camera.camera_from_world, 0.001f, glm::vec3(0.0f, 1.0f, 0.0f));
+		}
+
+		if (glfwGetKey(window, GLFW_KEY_LEFT)) {
+			camera.camera_from_world = glm::rotate(camera.camera_from_world, 0.001f, glm::vec3(0.0f, -1.0f, 0.0f));
+		}
 		//world_from_model = glm::rotate(world_from_model, 0.001f, glm::vec3(0.0f, 1.0f, 0.0f));
 
-		for (int i = 0; i < particles.size(); i++) {
-			if (!particles[i].moving) {
-				continue;
-			}
-			if (particles[i].transform.position.y <= -4.0f) {
-				particles[i].moving = false;
-				continue;
-			}
-
-			glm::vec3 newPos = particles[i].transform.position + particles[i].velocity;
-			bool collide = false;
-			
-			for (int j = 0; j < particles.size(); j++) {
-				if (j == i) {
-					continue;
-				}
-
-				glm::vec3 a = particles[i].transform.position;
-				glm::vec3 b = particles[j].transform.position;
-
-				float dist = sqrt(pow(a.x - b.x, 2.0) + pow(a.y - b.y, 2.0) + pow(a.z - b.z, 2.0));
-				cout << dist << endl;
-				if (dist < 2.0f) {
-					collide = true;
-					break;
-				}
-			}
-
-			if (!collide) {
-				particles[i].transform.position = newPos;
-			}
-			else {
-				particles[i].moving = false;
-			}
-			//particles[i].world_from_model = glm::translate(glm::mat4(1), particles[i].transform.position);
-			//particles[i].world_from_model = glm::translate(particles[i].world_from_model, particles[i].velocity);
+		//move and check collision on particles
+		count++;
+		if (count % 100 == 0) {
+			particles_move_collision(particles);
 		}
 
 		render_scene(shader_program, window, particles, camera);
