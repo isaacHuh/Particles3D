@@ -1,0 +1,28 @@
+#version 330 core
+layout (location = 0) in vec3 pos;
+layout (location = 1) in vec2 texcoords;
+layout (location = 2) in vec3 normal;
+layout (location = 3) in vec3 tangent;
+layout (location = 4) in vec3 bitangent;
+out vec2 Texcoords;
+out vec3 Normal;
+out vec3 world_space_position;
+out vec3 world_space_camera_position;
+out vec3 diffuse;
+out mat3 TBN;
+uniform vec2 offset;
+uniform mat4 camera_from_world;
+uniform mat4 view_from_camera;
+uniform mat4 world_from_model;
+void main() {
+	Texcoords = texcoords;
+	Normal = mat3(transpose(inverse(world_from_model))) * normal;
+	gl_Position = view_from_camera * camera_from_world * world_from_model * vec4(pos, 1.0);
+	world_space_position = vec3(world_from_model * vec4(pos, 1.0));
+	mat4 world_from_camera = inverse(camera_from_world);
+	world_space_camera_position = vec3(world_from_camera * vec4(0.0, 0.0, 0.0, 1.0));
+	vec3 T = normalize(vec3(world_from_model * vec4(tangent,0.0f)));
+	vec3 B = normalize(vec3(world_from_model * vec4(bitangent,0.0f)));
+	vec3 N = normalize(vec3(world_from_model * vec4(normal,0.0f)));
+	TBN = mat3(T, B, N);
+}

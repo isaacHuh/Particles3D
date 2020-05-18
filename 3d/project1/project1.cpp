@@ -333,6 +333,7 @@ struct Transform {
 };
 
 struct Particle {
+	bool render = true;
 	bool moving = true;
 	glm::mat4 world_from_model;
 	glm::vec3 velocity;
@@ -361,7 +362,7 @@ GLFWwindow* initialize_glfw() {
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 	/* Create a windowed mode window and its OpenGL context */
-	window = glfwCreateWindow(640*2, 480*2, "Hello World", NULL, NULL);
+	window = glfwCreateWindow(640*2, 480*2, "Particles 3D", NULL, NULL);
 
 	/* Make the window's context current */
 	glfwMakeContextCurrent(window);
@@ -373,84 +374,19 @@ GLFWwindow* initialize_glfw() {
 	return window;
 }
 
-GLuint compile_shader() {
+GLuint compile_shader(const char *vertex_filename, const char *fragment_filename) {
 	// Define shader sourcecode
-	const char* vertex_shader_src =
-		"#version 330 core\n"
-		"layout (location = 0) in vec3 pos;\n"
-		"layout (location = 1) in vec2 texcoords;\n"
-		"layout (location = 2) in vec3 normal;\n"
-		"layout (location = 3) in vec3 tangent;\n"
-		"layout (location = 4) in vec3 bitangent;\n"
-		"out vec2 Texcoords;\n"
-		"out vec3 Normal;\n"
-		"out vec3 world_space_position;\n"
-		"out vec3 world_space_camera_position;\n"
-		"out vec3 diffuse;\n"
-		"out mat3 TBN;"
-		"uniform vec2 offset;\n"
-		"uniform mat4 camera_from_world;"
-		"uniform mat4 view_from_camera;"
-		"uniform mat4 world_from_model;"
-		"void main() {\n"
-		"	Texcoords = texcoords;\n"
-		"	Normal = mat3(transpose(inverse(world_from_model))) * normal;\n"
-		"	gl_Position = view_from_camera * camera_from_world * world_from_model * vec4(pos, 1.0);\n"
-		"	world_space_position = vec3(world_from_model * vec4(pos, 1.0));\n"
-		"	mat4 world_from_camera = inverse(camera_from_world);\n"
-		"	world_space_camera_position = vec3(world_from_camera * vec4(0.0, 0.0, 0.0, 1.0));\n"
-		"	vec3 T = normalize(vec3(world_from_model * vec4(tangent,0.0f)));\n"
-		"	vec3 B = normalize(vec3(world_from_model * vec4(bitangent,0.0f)));\n"
-		"	vec3 N = normalize(vec3(world_from_model * vec4(normal,0.0f)));\n"
-		"	TBN = mat3(T, B, N);\n"
-		"}\n";
+	ifstream fragment_shader_file(fragment_filename);
+	stringstream fragment_shader_stream;
+	fragment_shader_stream << fragment_shader_file.rdbuf();
+	string fragment_shader_string = fragment_shader_stream.str();
+	const char* fragment_shader_c_string = fragment_shader_string.c_str();
 
-	const char* fragment_shader_src =
-		"#version 330 core\n"
-		"out vec4 FragColor;\n"
-		"in vec2 Texcoords;\n"
-		"in vec3 Normal;\n"
-		"in vec3 world_space_position;\n"
-		"in vec3 world_space_camera_position;\n"
-		"in vec3 diffuse;\n"
-		"in mat3 TBN;\n"
-		"uniform vec4 color;\n"
-		"uniform sampler2D diffuse_map;\n"
-		"uniform sampler2D specular_map;\n"
-		"uniform sampler2D normal_map;\n"
-		"uniform int usingTex;\n"
-		"uniform vec3 lightPos;\n"
-		"void main() {\n"
-		"	// Light settings etc\n"
-		"	vec3 light_dir = lightPos;\n"
-		"	vec3 light_color = 0.75 * vec3(1.0, 1.0, 1.0);\n"
-		"	vec3 specular_color = 0.2 * vec3(1.0, 1.0, 1.0);\n"
-		"	vec3 normal = vec3(texture(normal_map, Texcoords));\n"
-		"	normal = normal * 2.0 - 1.0;\n"
-		"	normal = TBN * normal;\n"
-		"	normal = normalize(normal);\n"
-
-		"	// Ambient lighting\n"
-		"	vec3 ambient = 0.1 * vec3(1.0, 1.0, 1.0);\n"
-	
-		"	// Diffuse lighting\n"
-		"	float diffuse_intensity = max(dot(normal, light_dir), 0.0); \n"
-		"	vec3 diffuse_map_color = vec3(texture(diffuse_map, Texcoords));\n"
-		//"	diffuse_map_color += vec3(texture(specular_map, Texcoords));\n"
-		"	vec3 diffuse = diffuse_map_color * diffuse_intensity * light_color;\n"
-		"\n"
-		"	// Specular lighting\n"
-		"	vec3 view_direction = normalize(world_space_camera_position - world_space_position);\n"
-		"	vec3 reflect_direction = reflect(-light_dir, normal);\n"
-		"	float specular_intensity = pow(max(dot(view_direction, reflect_direction), 0.0), 1.5);\n"
-		"	specular_intensity *= (1.0 - texture(specular_map, Texcoords).r);\n"
-		"	vec3 specular = specular_intensity * specular_color;\n"
-		"\n"
-		"	// Final output\n"
-		//"	FragColor = vec4(normal, 1.0); \n"
-		//"	FragColor = vec4(texture(diffuse_map, Texcoords).xyz, 1.0);\n"
-		"   FragColor = vec4(ambient + diffuse + specular, 1.0);\n"
-		"}\n";
+	ifstream vertex_shader_file(vertex_filename);
+	stringstream vertex_shader_stream;
+	vertex_shader_stream << vertex_shader_file.rdbuf();
+	string vertex_shader_string = vertex_shader_stream.str();
+	const char* vertex_shader_c_string = vertex_shader_string.c_str();
 
 	// Define some vars
 	const int MAX_ERROR_LEN = 512;
@@ -459,7 +395,7 @@ GLuint compile_shader() {
 
 	// Compile the vertex shader
 	GLuint vertex_shader = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vertex_shader, 1, &vertex_shader_src, NULL);
+	glShaderSource(vertex_shader, 1, &vertex_shader_c_string, NULL);
 	glCompileShader(vertex_shader);
 
 	// Check for errors
@@ -472,7 +408,7 @@ GLuint compile_shader() {
 
 	// Compile the fragment shader
 	GLuint fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(fragment_shader, 1, &fragment_shader_src, NULL);
+	glShaderSource(fragment_shader, 1, &fragment_shader_c_string, NULL);
 	glCompileShader(fragment_shader);
 
 	// Check for errors
@@ -499,9 +435,6 @@ GLuint compile_shader() {
 	glDeleteShader(vertex_shader);
 	glDeleteShader(fragment_shader);
 
-	// Enable the shader here since we only have one
-	glUseProgram(shader_program);
-
 	return shader_program;
 }
 
@@ -526,14 +459,7 @@ GLuint load_textures(GLenum active_texture, const char *filename) {
 	// vertically
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	/*
-	GLsizei width = 2;
-	GLsizei height = 2;
-	float pixels[] = {
-	0.0f, 0.0f, 0.0f,	1.0f, 1.0f, 1.0f, // r, g, b,   r, g, b
-	1.0f, 1.0f, 1.0f,	0.0f, 0.0f, 0.0f, // r, g, b,   r, g, b
-	};
-	*/
+
 	int width, height, nrChannels;
 	// The FileSystem::getPath(...) is part of the GitHub repository so we can find files on any IDE/platform; replace it with your own image path.
 	unsigned char* data = stbi_load(filename, &width, &height, &nrChannels, 0);
@@ -558,105 +484,355 @@ GLuint load_textures(GLenum active_texture, const char *filename) {
 	return tex;
 }
 
-bool object_at_point(vector<Particle>& particles, glm::vec3 pos) {
-	//maybe use distance
-	for (int i = 0; i < particles.size(); i++) {
-		if (particles[i].transform.position == pos) {
-			return true;
+
+GLuint load_cubemap(GLenum active_texture, 
+	const char* left,
+	const char* front,
+	const char* right,
+	const char* back,
+	const char* top,
+	const char* bottom) {
+	// OpenGL has multiple slots for textures, lets work with slot 0
+	glActiveTexture(active_texture);
+
+	// Create a new texture on the GPU
+	GLuint tex;
+	glGenTextures(1, &tex);
+
+	// Bind our texture as a 2D texture
+	glBindTexture(GL_TEXTURE_CUBE_MAP, tex);
+
+	
+	// We’re also going to tell OpenGL to wrap the texture infinitely both horizontally and
+	// vertically
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	{
+		int width = 0, height = 0;
+		GLubyte* pixels = stbi_load(right, &width, &height, NULL, 3);
+		if (pixels == NULL || width == 0 || height == 0) {
+			abort();
 		}
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
 	}
-	return false;
+	{
+		int width = 0, height = 0;
+		GLubyte* pixels = stbi_load(left, &width, &height, NULL, 3);
+		if (pixels == NULL || width == 0 || height == 0) {
+			abort();
+		}
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_X, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+	}
+	{
+		int width = 0, height = 0;
+		GLubyte* pixels = stbi_load(top, &width, &height, NULL, 3);
+		if (pixels == NULL || width == 0 || height == 0) {
+			abort();
+		}
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_Y, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+	}
+	{
+		int width = 0, height = 0;
+		GLubyte* pixels = stbi_load(bottom, &width, &height, NULL, 3);
+		if (pixels == NULL || width == 0 || height == 0) {
+			abort();
+		}
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+	}
+	{
+		int width = 0, height = 0;
+		GLubyte* pixels = stbi_load(front, &width, &height, NULL, 3);
+		if (pixels == NULL || width == 0 || height == 0) {
+			abort();
+		}
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_Z, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+	}
+	{
+		int width = 0, height = 0;
+		GLubyte* pixels = stbi_load(back, &width, &height, NULL, 3);
+		if (pixels == NULL || width == 0 || height == 0) {
+			abort();
+		}
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+	}
+
+	//glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_FLOAT, pixels);
+
+	return tex;
 }
 
-void particles_move_collision(vector<Particle> &particles) {
+Particle* object_at_point(vector<Particle>& particles, glm::vec3 pos) {
+	//maybe use distance
 	for (int i = 0; i < particles.size(); i++) {
-		if (!particles[i].moving) {
+		if (particles[i].type == "smoke") {
 			continue;
 		}
-		if (particles[i].transform.position.y <= -16.0f) {
-			particles[i].moving = false;
+
+		if (particles[i].transform.position == pos) {
+			return &particles[i];
+		}
+	}
+	return NULL;
+}
+
+float point_distance(glm::vec3 a, glm::vec3 b) {
+	return sqrt(pow(a.x - b.x, 2.0) + pow(a.y - b.y, 2.0) + pow(a.z - b.z, 2.0));
+}
+
+void swap_positions(Particle &p1, Particle &p2) {
+	glm::vec3 temp = p1.transform.position;
+	p1.transform.position = p2.transform.position;
+	p2.transform.position = temp;
+
+	p1.render = true;
+	p2.render = true;
+	cout << "swapped\n";
+}
+
+int findPlace(vector<Particle>& particles, Particle& p) {
+	for (int i = 0; i < particles.size(); i++) {
+		if (&particles[i] == &p) {
+			return i;
+			break;
+		}
+	}
+	return -1;
+}
+
+void remove_values(vector<Particle>& particles, Particle& particle1, Particle& particle2) {
+
+	glm::vec3 spawnPos = particle1.transform.position;
+	Model model = particle1.model;
+
+	int p1 = 0, p2 = 0;
+	
+	vector<Particle>::iterator it;
+
+	//get pos of particle1
+	p1 = findPlace(particles, particle1);
+
+	//get pos of particle2
+	p2 = findPlace(particles, particle2);
+	
+	//delete &particles[p1];
+	//delete &particles[p2];
+
+	if (p1 > p2) {
+		particles.erase(particles.begin() + p1);
+		particles.erase(particles.begin() + p2);
+	}
+	else {
+		particles.erase(particles.begin() + p2);
+		particles.erase(particles.begin() + p1);
+	}
+
+	for (int i = 0; i < 3; i++) {
+		particles.push_back(Particle(model,
+			spawnPos,
+			glm::vec3(1.0f, 1.0f, 1.0f),
+			glm::vec3(RandomFloat(-2.0f, 2.0f), RandomFloat(0.5f,2.0f), RandomFloat(-2.0f, 2.0f)),
+			"smoke"));
+	}
+
+	//p1.render = true;
+	//p2.render = true;
+
+	cout << "removed\n";
+}
+
+void print(vector<Particle> &vector)
+{
+	for (auto i : vector) {
+		std::cout << & i << ' ';
+	}
+
+	std::cout << '\n';
+}
+
+int particles_move_collision(vector<Particle> &particles, vector<int> &movePos, vector<int> &checkPos) {
+	//print(particles);
+	//cout << "check: ";
+	//print(particlesCheck);
+
+	int bound = 6;
+	int count = 0;
+	for (int i : movePos) {
+		//cout << "size: " << particles.size() << " i: " << i << endl;
+		bool returning = false;
+		//don't do anything with particles that are at the bottom or not rendering
+		if (particles[i].type == "smoke") {
+			particles[i].transform.position += particles[i].velocity;
+			
+
+			if (abs(particles[i].transform.position.x) >= 6) {
+				particles[i].transform.position.x -= particles[i].velocity.x;
+				particles[i].velocity.x = 0;
+			}
+				
+			if (abs(particles[i].transform.position.z) >= 6) {
+				particles[i].transform.position.z -= particles[i].velocity.z;
+				particles[i].velocity.z = 0;
+			}
 			continue;
 		}
+		
+		if (particles[i].transform.position.y <= -16.0f || !particles[i].render) {
+			//cout << "cont\n";
+			//particles[i].moving = false;
+			continue;
+		}
+		count++;
 
 		glm::vec3 newPos = particles[i].transform.position + particles[i].velocity;
 		bool collide = false;
 
 
-		for (int j = 0; j < particles.size(); j++) {
-			if (j == i) {
+		for (int j : checkPos) {
+			//cout << &(particles)+j <<" check: " << &(particlesCheck[j]);
+			if (&particles[j] == &particles[i] || particles[j].type == "smoke") {
+				//cout << "match";
 				continue;
 			}
 
 			glm::vec3 a = newPos;
 			glm::vec3 b = particles[j].transform.position;
 
-			float dist = sqrt(pow(a.x - b.x, 2.0) + pow(a.y - b.y, 2.0) + pow(a.z - b.z, 2.0));
+			float dist = point_distance(a,b);
 			//cout << dist << endl;
 			if (dist < 2.0f) {
 				collide = true;
 
 				glm::vec3 newPosPlus = particles[i].transform.position;
 
-				//go down pyramid if sand
-				if (!object_at_point(particles, newPos + glm::vec3(-2.0f, 0.0f, 0.0f))) {
-					newPosPlus = newPos + glm::vec3(-2.0f, 0.0f, 0.0f);
-				}
-				else if (!object_at_point(particles, newPos + glm::vec3(2.0f, 0.0f, 0.0f))) {
-					newPosPlus = newPos + glm::vec3(2.0f, 0.0f, 0.0f);
-				}
-				else if (!object_at_point(particles, newPos + glm::vec3(0.0f, 0.0f, 2.0f))) {
-					newPosPlus = newPos + glm::vec3(0.0f, 0.0f, 2.0f);
-				}
-				else if (!object_at_point(particles, newPos + glm::vec3(0.0f, 0.0f, -2.0f))) {
-					newPosPlus = newPos + glm::vec3(0.0f, 0.0f, -2.0f);
-				}
-				
-				
-				if(newPosPlus == particles[i].transform.position || abs(newPosPlus.x) > 6 || abs(newPosPlus.z) > 6){
+				if (particles[i].type == "sand") {
+					vector<glm::vec3> posAdd;
+					posAdd.push_back(glm::vec3(0.0f, 0.0f, 0.0f));
+					posAdd.push_back(glm::vec3(-2.0f, 0.0f, 0.0f));
+					posAdd.push_back(glm::vec3(2.0f, 0.0f, 0.0f));
+					posAdd.push_back(glm::vec3(0.0f, 0.0f, 2.0f));
+					posAdd.push_back(glm::vec3(0.0f, 0.0f, -2.0f));
 
-					//additional checks if water
-					if (particles[i].type == "water") {
-						//check direction at random
-						int dir = (int)RandomFloat(0.0f,5.0f);
-						switch (dir) {
-							case 0:
-								if (!object_at_point(particles, newPos + glm::vec3(-2.0f, 2.0f, 0.0f))) {
-									newPosPlus = newPos + glm::vec3(-2.0f, 2.0f, 0.0f);
-								}
-								break;
-							case 1:
-								if (!object_at_point(particles, newPos + glm::vec3(2.0f, 2.0f, 0.0f))) {
-									newPosPlus = newPos + glm::vec3(2.0f, 2.0f, 0.0f);
-								}
-								break;
-							case 2:
-								if (!object_at_point(particles, newPos + glm::vec3(0.0f, 2.0f, 2.0f))) {
-									newPosPlus = newPos + glm::vec3(0.0f, 2.0f, 2.0f);
-								}
-								break;
-							case 3:
-								if (!object_at_point(particles, newPos + glm::vec3(0.0f, 2.0f, -2.0f))) {
-									newPosPlus = newPos + glm::vec3(0.0f, 2.0f, -2.0f);
-								}
-								break;
+					//go down pyramid if sand and swap if collide with water
+					for(int k = 0; k < posAdd.size(); k++){
+						Particle* obj = object_at_point(particles, newPos + posAdd[k]);
+						if (!obj) {
+							newPosPlus = newPos + posAdd[k];
+							break;
+						}
+						else if ((*obj).type == "water" || (*obj).type == "lava") {
+							//swap positions if collide with water
+
+							swap_positions(particles[i], *obj);
+							newPosPlus = particles[i].transform.position;
+							break;
 						}
 					}
 				}
+				else if(particles[i].type == "water" || particles[i].type == "lava"){
+					//bool returning = false;
+					//go down normally
+					vector<glm::vec3> posAdd;
+					posAdd.push_back(glm::vec3(-2.0f, 0.0f, 0.0f));
+					posAdd.push_back(glm::vec3(2.0f, 0.0f, 0.0f));
+					posAdd.push_back(glm::vec3(0.0f, 0.0f, 2.0f));
+					posAdd.push_back(glm::vec3(0.0f, 0.0f, -2.0f));
 
-				if (abs(newPosPlus.x) <= 6 && abs(newPosPlus.z) <= 6) {
-					particles[i].transform.position = newPosPlus;
+					//go down pyramid 
+					for (int k = 0; k < posAdd.size(); k++) {
+						Particle* obj = object_at_point(particles, newPos + posAdd[k]);
+						if (!obj) {
+							newPosPlus = newPos + posAdd[k];
+							break;
+						}
+						else {
+							if ((particles[i].type == "water" && obj->type == "lava") || (particles[i].type == "lava" && obj->type == "water")) {
+								remove_values(particles, particles[i], *obj);
+								returning = true;
+								break;
+							}
+						}
+					}
+					if (returning) { return 1; }
+
+					if (newPosPlus == particles[i].transform.position || abs(newPosPlus.x) > bound || abs(newPosPlus.z) > bound) {
+						//additional checks if water
+						//check direction at random and spreads
+						posAdd.clear();
+						posAdd.push_back(glm::vec3(-2.0f, 2.0f, 0.0f));
+						posAdd.push_back(glm::vec3(2.0f, 2.0f, 0.0f));
+						posAdd.push_back(glm::vec3(0.0f, 2.0f, -2.0f));
+						posAdd.push_back(glm::vec3(0.0f, 2.0f, 2.0f));
+
+						int dir = (int)RandomFloat(0.0f, 4.0f);
+						if (dir == 4) { dir--; }
+
+						Particle* obj = object_at_point(particles, newPos + posAdd[dir]);
+						if (!obj) {
+							newPosPlus = newPos + posAdd[dir];
+						}
+						else {
+							if ((particles[i].type == "water" && obj->type == "lava") || (particles[i].type == "lava" && obj->type == "water")) {
+								remove_values(particles, particles[i], *obj);
+								returning = true;
+								//break;
+							}
+						}
+					}
+					if (returning) { return 1; }
 				}
 
+				if (abs(newPosPlus.x) <= bound && abs(newPosPlus.z) <= bound && newPosPlus != particles[i].transform.position) {
+					Particle *bottomObj = object_at_point(particles, particles[i].transform.position + glm::vec3(0.0f,-2.0f,0.0f));
+					if (bottomObj) { (*bottomObj).render = true; }
+
+					particles[i].transform.position = newPosPlus;
+					particles[i].render = true;
+				}
+				else {
+					//if(newPosPlus != particles[i].transform.position)
+
+					//determine whether to render
+					//check all sides to see if any is exposed
+
+					bool render = false;
+					vector<glm::vec3> posAdd;
+					posAdd.push_back(glm::vec3(-2.0f, 0.0f, 0.0f));
+					posAdd.push_back(glm::vec3(2.0f, 0.0f, 0.0f));
+					posAdd.push_back(glm::vec3(0.0f, -2.0f, 0.0f));
+					posAdd.push_back(glm::vec3(0.0f, 2.0f, 0.0f));
+					posAdd.push_back(glm::vec3(0.0f, 0.0f, -2.0f));
+					posAdd.push_back(glm::vec3(0.0f, 0.0f, 2.0f));
+
+					for (int k = 0; k < posAdd.size(); k++) {
+						Particle* obj = object_at_point(particles, particles[i].transform.position + posAdd[k]);
+						if (!obj) {
+							render = true;
+							break;
+						}
+					}
+
+					particles[i].render = render;
+				}
 				break;
 			}
 		}
+		//if (returning) { ; }
 
 		if (!collide) {
 			particles[i].transform.position = newPos;
 		}
+
+		//particles[i].moving = false;
 		//particles[i].world_from_model = glm::translate(glm::mat4(1), particles[i].transform.position);
 		//particles[i].world_from_model = glm::translate(particles[i].world_from_model, particles[i].velocity);
 	}
+
+	//cout << "p: " << particles.size() << " check: " << count << endl;
 }
 
 void particles_move(vector<Particle>& particles) {
@@ -665,27 +841,79 @@ void particles_move(vector<Particle>& particles) {
 	}
 }
 
-void render_scene(GLuint& shader_program, GLFWwindow* window, vector<Particle> particles, Camera camera) {
+void render_scene(GLuint& shader_program,
+	GLuint& sky_shader_program,
+	GLFWwindow* window, 
+	Particle cubemap,
+	vector<Particle>& particles, 
+	Camera camera) {
 	// Set the clear color
 	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
 	// Clear the screen
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+	glDepthMask(GL_FALSE);
+
+	{
+		glUseProgram(sky_shader_program);
+
+		GLint offset_location = glGetUniformLocation(sky_shader_program, "offset");
+		GLint camera_from_world_location = glGetUniformLocation(sky_shader_program, "camera_from_world");
+
+		GLint skybox_location = glGetUniformLocation(sky_shader_program, "skybox");
+		glUniform1i(skybox_location, 0);
+
+		glm::mat4 camera_from_world_no_translation = glm::mat4(glm::mat3(camera.camera_from_world));
+		glUniformMatrix4fv(
+			camera_from_world_location,
+			1, // count
+			GL_FALSE, // transpose
+			glm::value_ptr(camera_from_world_no_translation)
+		);
+
+		GLint view_from_camera_location = glGetUniformLocation(sky_shader_program, "view_from_camera");
+		glUniformMatrix4fv(
+			view_from_camera_location,
+			1, // count
+			GL_FALSE, // transpose
+			glm::value_ptr(camera.view_from_camera(window))
+		);
+
+		GLint world_from_model_location = glGetUniformLocation(sky_shader_program, "world_from_model");
+		glUniformMatrix4fv(
+			world_from_model_location,
+			1, // count
+			GL_FALSE, // transpose
+			glm::value_ptr(cubemap.world_from_model)
+		);
+
+		cubemap.model.draw();
+	}
+
+	glDepthMask(GL_TRUE);
+
+	// Enable the shader here since we only have one
+	glUseProgram(shader_program);
+
 	GLint color_location = glGetUniformLocation(shader_program, "color");
+	GLint shiny_location = glGetUniformLocation(shader_program, "shiny");
 	GLint offset_location = glGetUniformLocation(shader_program, "offset");
 	GLint world_to_camera_location = glGetUniformLocation(shader_program, "camera_from_world");
 
 	glUniform4f(color_location, 1.0f, 1.0f, 1.0f, 1.0f);
 
 	GLint diffuse_map_location = glGetUniformLocation(shader_program, "diffuse_map");
-	glUniform1i(diffuse_map_location, 0);
+	//glUniform1i(diffuse_map_location, 0);
 
 	GLint specular_map_location = glGetUniformLocation(shader_program, "specular_map");
-	glUniform1i(specular_map_location, 1);
+	//glUniform1i(specular_map_location, 1);
 
 	GLint normal_map_location = glGetUniformLocation(shader_program, "normal_map");
-	glUniform1i(normal_map_location, 2);
+	//glUniform1i(normal_map_location, 2);
+
+	GLint skybox_location = glGetUniformLocation(shader_program, "skybox");
+	glUniform1i(skybox_location, 0);
 
 	glUniformMatrix4fv(
 		world_to_camera_location,
@@ -703,15 +931,40 @@ void render_scene(GLuint& shader_program, GLFWwindow* window, vector<Particle> p
 	);
 
 	for (int i = 0; i < particles.size(); i++) {
-		if (particles[i].type == "water") {
-			glUniform1i(diffuse_map_location, 0);
-			glUniform1i(specular_map_location, 1);
-			glUniform1i(normal_map_location, 2);
+		if (particles[i].type == "smoke" && particles[i].transform.position[1] > 20.0f) {
+			//delete &particles[i];
+			particles.erase(particles.begin() + i);
+			i--;
+			continue;
 		}
-		else {
-			glUniform1i(diffuse_map_location, 3);
-			glUniform1i(specular_map_location, 4);
-			glUniform1i(normal_map_location, 5);
+
+		if (!particles[i].render) {
+			continue;
+		}
+
+		if (particles[i].type == "water") {
+			glUniform1i(diffuse_map_location, 1);
+			glUniform1i(specular_map_location, 2);
+			glUniform1i(normal_map_location, 3);
+			glUniform1i(shiny_location, 1);
+		}
+		else if (particles[i].type == "lava") {
+			glUniform1i(diffuse_map_location, 7);
+			glUniform1i(specular_map_location, 8);
+			glUniform1i(normal_map_location, 9);
+			glUniform1i(shiny_location, 0);
+		}
+		else if (particles[i].type == "smoke") {
+			glUniform1i(diffuse_map_location, 10);
+			glUniform1i(specular_map_location, 11);
+			glUniform1i(normal_map_location, 12);
+			glUniform1i(shiny_location, 0);
+		}
+		else{
+			glUniform1i(diffuse_map_location, 4);
+			glUniform1i(specular_map_location, 5);
+			glUniform1i(normal_map_location, 6);
+			glUniform1i(shiny_location, 0);
 		}
 
 		particles[i].world_from_model = glm::translate(glm::mat4(1), particles[i].transform.position);
@@ -739,10 +992,11 @@ void render_scene(GLuint& shader_program, GLFWwindow* window, vector<Particle> p
 	glfwSwapBuffers(window);
 }
 
-void cleanup(GLFWwindow* window, GLuint shader_program,vector<Model> models, vector<GLuint> *textures) {
+void cleanup(GLFWwindow* window, GLuint shader_program, GLuint sky_shader_program, vector<Model> models, vector<GLuint> *textures) {
 	glDeleteTextures(textures->size(), &(*textures)[0]);
 
 	glDeleteProgram(shader_program);
+	glDeleteProgram(sky_shader_program);
 	for (Model model : models) {
 		model.cleanup();
 	}
@@ -750,9 +1004,23 @@ void cleanup(GLFWwindow* window, GLuint shader_program,vector<Model> models, vec
 	glfwTerminate();
 }
 
+void assign_bucket(vector<Particle> &particles, vector<vector<int>> &buckets) {
+	for (int i = 0; i < 7; i++) {
+		(buckets[i]).clear();
+	}
+	for (int i = 0; i < particles.size(); i++) {
+		int bucketPos = (particles[i].transform.position.x + 6)/2;
+		if (bucketPos > 6) {
+			bucketPos = 0;
+		}
+		(buckets[bucketPos]).push_back(i);
+	}
+}
+
 int main(void) {
 	GLFWwindow* window = initialize_glfw();
-	GLuint shader_program = compile_shader();
+	GLuint shader_program = compile_shader("shader.vert", "shader.frag");
+	GLuint sky_shader_program = compile_shader("sky.vert", "sky.frag");
 
 	//float light_x = 1.0;
 	vector<float> lightPos;
@@ -769,6 +1037,14 @@ int main(void) {
 	models.push_back(Model::load(string("normals/cube-normals.obj")));
 	models.push_back(Model::load(string("normals/monkey-normals.obj")));
 	
+	Particle cubemap = Particle(models[0], glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), "cubemap");
+	vector<vector<int>> buckets;
+	for (int i = 0; i < 7; i++) {
+		vector<int> v;
+		buckets.push_back(v);
+	}
+
+
 	vector<Particle> particles;
 	//particles.push_back(Particle(models[0], glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, -RandomFloat(0.005f, 0.05f), 0.0f)));
 	/*
@@ -782,15 +1058,29 @@ int main(void) {
 	*/
 
 	vector<GLuint> textures;
-	textures.push_back(load_textures(GL_TEXTURE0, "./Water/WaterColor.jpg"));
-	textures.push_back(load_textures(GL_TEXTURE1, "./Water/WaterSpec.jpg"));
-	textures.push_back(load_textures(GL_TEXTURE2, "./Water/WaterNormal.jpg"));
-	textures.push_back(load_textures(GL_TEXTURE3, "./brick_color.jpg"));
-	textures.push_back(load_textures(GL_TEXTURE4, "./brick_spec.jpg"));
-	textures.push_back(load_textures(GL_TEXTURE5, "./brick_normal.jpg"));
+	textures.push_back(load_textures(GL_TEXTURE1, "./Water/WaterColor.jpg"));
+	textures.push_back(load_textures(GL_TEXTURE2, "./Water/WaterSpec.jpg"));
+	textures.push_back(load_textures(GL_TEXTURE3, "./Water/WaterNormal.jpg"));
+	textures.push_back(load_textures(GL_TEXTURE4, "./Rock/Rock2Color.jpg"));
+	textures.push_back(load_textures(GL_TEXTURE5, "./Rock/Rock2Roughness.jpg"));
+	textures.push_back(load_textures(GL_TEXTURE6, "./Rock/Rock2Normal.jpg"));
+	textures.push_back(load_textures(GL_TEXTURE7, "./Lava2/LavaColor.jpg"));
+	textures.push_back(load_textures(GL_TEXTURE8, "./Lava2/LavaRoughness.jpg"));
+	textures.push_back(load_textures(GL_TEXTURE9, "./Lava2/LavaNormal.jpg"));
+	textures.push_back(load_textures(GL_TEXTURE10, "./Snow/SnowColor.jpg"));
+	textures.push_back(load_textures(GL_TEXTURE11, "./Snow/SnowRoughness.jpg"));
+	textures.push_back(load_textures(GL_TEXTURE12, "./Snow/SnowNormal.jpg"));
+
+	textures.push_back(load_cubemap(GL_TEXTURE0, 
+		"./cloudy/bluecloud_rt.jpg",
+		"./cloudy/bluecloud_ft.jpg", 
+		"./cloudy/bluecloud_lf.jpg", 
+		"./cloudy/bluecloud_bk.jpg", 
+		"./cloudy/bluecloud_up.jpg", 
+		"./cloudy/bluecloud_dn.jpg"));
 
 	Camera camera;
-	camera.camera_from_world = glm::translate(camera.camera_from_world, glm::vec3(0.0f, 2.0f, -40.0f));
+	camera.camera_from_world = glm::translate(camera.camera_from_world, glm::vec3(0.0f, 10.0f, -25.0f));
 
 	//glm::mat4 world_from_model = glm::mat4(1.0); // init to the identity matrix
 	
@@ -798,13 +1088,10 @@ int main(void) {
 	bool pressed = false;
 	string type = "sand";
 	while (!glfwWindowShouldClose(window)) {  
-		/*
-		if (glfwGetKey(window, GLFW_KEY_S)) {
-			if (lightPos[1] > -1.0) {
-				lightPos[1] -= 0.005;
-			} 
-		}*/
-
+		if (glfwGetKey(window, GLFW_KEY_R)) {
+			particles.clear();
+			cout << "reset";
+		}
 		if (glfwGetKey(window, GLFW_KEY_1)) {
 			type = "sand";
 			cout << type << endl;
@@ -813,13 +1100,17 @@ int main(void) {
 			type = "water";
 			cout << type << endl;
 		}
+		if (glfwGetKey(window, GLFW_KEY_3)) {
+			type = "lava";
+			cout << type << endl;
+		}
 
 		if (glfwGetKey(window, GLFW_KEY_SPACE)) {
 			if (!pressed) {
 				cout << "spawn" << endl;
 				
 				particles.push_back(Particle(models[0],
-					//glm::vec3((int)RandomFloat(-5.0f, 5.0f)*2.0, 15.0f, (int)RandomFloat(-5.0f, 5.0f) * 2.0),
+					//glm::vec3((int)RandomFloat(-2.0f, 2.0f)*2.0, 16.0f, (int)RandomFloat(-2.0f, 2.0f) * 2.0),
 					glm::vec3(0.0f, 16.0f, 0.0f),
 					glm::vec3(1.0f, 1.0f, 1.0f),
 					glm::vec3(0.0f, -2.0f, 0.0f),
@@ -845,26 +1136,84 @@ int main(void) {
 
 		//camera.camera_from_world = glm::translate(camera.camera_from_world, glm::vec3(0.0f, 0.0f, 0.0001f));
 
+		if (glfwGetKey(window, GLFW_KEY_UP)) {
+			camera.camera_from_world = glm::translate(camera.camera_from_world, glm::vec3(0.0f, -0.01f, 0.0f));
+		}
+
+		if (glfwGetKey(window, GLFW_KEY_DOWN)) {
+			camera.camera_from_world = glm::translate(camera.camera_from_world, glm::vec3(0.0f, 0.01f, 0.0f));
+		}
+
 		if (glfwGetKey(window, GLFW_KEY_RIGHT)) {
-			camera.camera_from_world = glm::rotate(camera.camera_from_world, 0.001f, glm::vec3(0.0f, 1.0f, 0.0f));
+			camera.camera_from_world = glm::rotate(camera.camera_from_world, 0.001f, glm::vec3(0.0f, -1.0f, 0.0f));
 		}
 
 		if (glfwGetKey(window, GLFW_KEY_LEFT)) {
-			camera.camera_from_world = glm::rotate(camera.camera_from_world, 0.001f, glm::vec3(0.0f, -1.0f, 0.0f));
+			camera.camera_from_world = glm::rotate(camera.camera_from_world, 0.001f, glm::vec3(0.0f, 1.0f, 0.0f));
 		}
 		//world_from_model = glm::rotate(world_from_model, 0.001f, glm::vec3(0.0f, 1.0f, 0.0f));
 
 		//move and check collision on particles
+		
 		count++;
-		if (count % 100 == 0) {
-			particles_move_collision(particles);
+		if (count % 25 == 0) {
+			//double time = glfwGetTime();
+			
+			assign_bucket(particles, buckets);
+
+			for (int i = 0; i < buckets.size(); i++) {
+				vector<int> particlesCheck;
+
+				//add bucket before
+				
+				if (i > 0) {
+					for (int j = 0; j < buckets[i - 1].size(); j++) {
+						particlesCheck.push_back(buckets[i - 1][j]);
+					}
+				}
+
+				//add bucket
+				for (int j = 0; j < buckets[i].size(); j++) {
+					particlesCheck.push_back(buckets[i][j]);
+				}
+
+				//add bucket after
+				if (i < 6) {
+					for (int j = 0; j < buckets[i+1].size(); j++) {
+						particlesCheck.push_back(buckets[i+1][j]);
+					}
+				}
+
+				int move = particles_move_collision(particles,buckets[i],particlesCheck);
+				if (move == 1) {
+					assign_bucket(particles, buckets);
+				}
+				//cout << "moved\n";
+			}
+			/*
+			assign_bucket(particles, buckets);
+			print(particles);
+			for (int i = 0; i < 7; i++) {
+				cout << "bucket " << i << ": ";
+				print(buckets[i]);
+			}
+			*/
+
+			//at least this one works
+			//particles_move_collision(particles, particles);
+			
+			count = 1;
+
+			//double passed = glfwGetTime() - time;
+
+			//cout << "part #: " << particles.size() << " | time: " << passed << endl;
 		}
 
-		render_scene(shader_program, window, particles, camera);
+		render_scene(shader_program, sky_shader_program, window, cubemap, particles, camera);
 		glfwPollEvents();
 	}
 
-	cleanup(window, shader_program, models, &textures);
+	cleanup(window, shader_program, sky_shader_program, models, &textures);
 	return 0;
 }
 
