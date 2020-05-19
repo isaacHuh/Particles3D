@@ -3,11 +3,11 @@ C:\Users\Isaac Torres PC\Desktop\Particles3D\3d\project1\project1.cpp(221,1): wa
 C:\Users\Isaac Torres PC\Desktop\Particles3D\3d\project1\project1.cpp(320,20): warning C4244: 'argument': conversion from 'float' to 'GLint', possible loss of data
 C:\Users\Isaac Torres PC\Desktop\Particles3D\3d\project1\project1.cpp(320,14): warning C4244: 'argument': conversion from 'float' to 'GLint', possible loss of data
 C:\Users\Isaac Torres PC\Desktop\Particles3D\3d\project1\project1.cpp(584,13): warning C4244: 'return': conversion from 'double' to 'float', possible loss of data
-C:\Users\Isaac Torres PC\Desktop\Particles3D\3d\project1\project1.cpp(996,52): warning C4267: 'argument': conversion from 'size_t' to 'GLsizei', possible loss of data
-C:\Users\Isaac Torres PC\Desktop\Particles3D\3d\project1\project1.cpp(1012,17): warning C4244: 'initializing': conversion from 'T' to 'int', possible loss of data
+C:\Users\Isaac Torres PC\Desktop\Particles3D\3d\project1\project1.cpp(999,17): warning C4244: 'initializing': conversion from 'T' to 'int', possible loss of data
           with
           [
               T=float
           ]
+C:\Users\Isaac Torres PC\Desktop\Particles3D\3d\project1\project1.cpp(1330,50): warning C4267: 'argument': conversion from 'size_t' to 'GLsizei', possible loss of data
 C:\Users\Isaac Torres PC\Desktop\Particles3D\3d\project1\project1.cpp(836): warning C4715: 'particles_move_collision': not all control paths return a value
   project1.vcxproj -> C:\Users\Isaac Torres PC\Desktop\Particles3D\3d\x64\Debug\project1.exe

@@ -904,13 +904,13 @@ void render_scene(GLuint& shader_program,
 	glUniform4f(color_location, 1.0f, 1.0f, 1.0f, 1.0f);
 
 	GLint diffuse_map_location = glGetUniformLocation(shader_program, "diffuse_map");
-	//glUniform1i(diffuse_map_location, 0);
+	glUniform1i(diffuse_map_location, 0);
 
 	GLint specular_map_location = glGetUniformLocation(shader_program, "specular_map");
-	//glUniform1i(specular_map_location, 1);
+	glUniform1i(specular_map_location, 1);
 
 	GLint normal_map_location = glGetUniformLocation(shader_program, "normal_map");
-	//glUniform1i(normal_map_location, 2);
+	glUniform1i(normal_map_location, 2);
 
 	GLint skybox_location = glGetUniformLocation(shader_program, "skybox");
 	glUniform1i(skybox_location, 0);
@@ -989,19 +989,6 @@ void render_scene(GLuint& shader_program,
 	);
 	*/
 	// Display the results on screen
-	glfwSwapBuffers(window);
-}
-
-void cleanup(GLFWwindow* window, GLuint shader_program, GLuint sky_shader_program, vector<Model> models, vector<GLuint> *textures) {
-	glDeleteTextures(textures->size(), &(*textures)[0]);
-
-	glDeleteProgram(shader_program);
-	glDeleteProgram(sky_shader_program);
-	for (Model model : models) {
-		model.cleanup();
-	}
-
-	glfwTerminate();
 }
 
 void assign_bucket(vector<Particle> &particles, vector<vector<int>> &buckets) {
@@ -1021,6 +1008,7 @@ int main(void) {
 	GLFWwindow* window = initialize_glfw();
 	GLuint shader_program = compile_shader("shader.vert", "shader.frag");
 	GLuint sky_shader_program = compile_shader("sky.vert", "sky.frag");
+	GLuint postprocess_shader_program = compile_shader("post.vert", "post.frag");
 
 	//float light_x = 1.0;
 	vector<float> lightPos;
@@ -1036,7 +1024,8 @@ int main(void) {
 	vector<Model> models;
 	models.push_back(Model::load(string("normals/cube-normals.obj")));
 	models.push_back(Model::load(string("normals/monkey-normals.obj")));
-	
+	models.push_back(Model::load(string("normals/plane-normals.obj")));
+
 	Particle cubemap = Particle(models[0], glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), "cubemap");
 	vector<vector<int>> buckets;
 	for (int i = 0; i < 7; i++) {
@@ -1061,12 +1050,15 @@ int main(void) {
 	textures.push_back(load_textures(GL_TEXTURE1, "./Water/WaterColor.jpg"));
 	textures.push_back(load_textures(GL_TEXTURE2, "./Water/WaterSpec.jpg"));
 	textures.push_back(load_textures(GL_TEXTURE3, "./Water/WaterNormal.jpg"));
+
 	textures.push_back(load_textures(GL_TEXTURE4, "./Rock/Rock2Color.jpg"));
 	textures.push_back(load_textures(GL_TEXTURE5, "./Rock/Rock2Roughness.jpg"));
 	textures.push_back(load_textures(GL_TEXTURE6, "./Rock/Rock2Normal.jpg"));
+
 	textures.push_back(load_textures(GL_TEXTURE7, "./Lava2/LavaColor.jpg"));
 	textures.push_back(load_textures(GL_TEXTURE8, "./Lava2/LavaRoughness.jpg"));
 	textures.push_back(load_textures(GL_TEXTURE9, "./Lava2/LavaNormal.jpg"));
+
 	textures.push_back(load_textures(GL_TEXTURE10, "./Snow/SnowColor.jpg"));
 	textures.push_back(load_textures(GL_TEXTURE11, "./Snow/SnowRoughness.jpg"));
 	textures.push_back(load_textures(GL_TEXTURE12, "./Snow/SnowNormal.jpg"));
@@ -1084,10 +1076,104 @@ int main(void) {
 
 	//glm::mat4 world_from_model = glm::mat4(1.0); // init to the identity matrix
 	
+	//Initialize framebuffers
+	GLuint fbo;
+	glGenFramebuffers(1, &fbo);
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+	//initialize color buffer
+	GLuint fbo_color;
+	glGenTextures(1, &fbo_color);
+	glActiveTexture(GL_TEXTURE13);
+	glBindTexture(GL_TEXTURE_2D, fbo_color);
+
+	int width, height;
+	glfwGetWindowSize(window, &width, &height);
+	
+	glTexImage2D(GL_TEXTURE_2D, 
+		0, 
+		GL_RGB, 
+		width, 
+		height, 
+		0,
+		GL_RGB,
+		GL_UNSIGNED_BYTE,
+		nullptr);
+
+	glFramebufferTexture2D(GL_FRAMEBUFFER,
+		GL_COLOR_ATTACHMENT0,
+		GL_TEXTURE_2D,
+		fbo_color,
+		0);
+
+	glTexParameteri(GL_TEXTURE_2D,
+		GL_TEXTURE_MIN_FILTER,
+		GL_LINEAR);
+
+	glTexParameteri(GL_TEXTURE_2D,
+		GL_TEXTURE_MAG_FILTER,
+		GL_LINEAR);
+
+
+	//initialize depth buffer
+	GLuint fbo_depth;
+	glGenTextures(1, &fbo_depth);
+	glActiveTexture(GL_TEXTURE14);
+	glBindTexture(GL_TEXTURE_2D, fbo_depth);
+
+	glTexImage2D(GL_TEXTURE_2D,
+		0,
+		GL_DEPTH24_STENCIL8,
+		width,
+		height,
+		0,
+		GL_DEPTH_STENCIL,
+		GL_UNSIGNED_INT_24_8,
+		nullptr);
+
+	glFramebufferTexture2D(GL_FRAMEBUFFER,
+		GL_DEPTH_STENCIL_ATTACHMENT,
+		GL_TEXTURE_2D,
+		fbo_depth,
+		0);
+
+	glTexParameteri(GL_TEXTURE_2D,
+		GL_TEXTURE_MIN_FILTER,
+		GL_LINEAR);
+
+	glTexParameteri(GL_TEXTURE_2D,
+		GL_TEXTURE_MAG_FILTER,
+		GL_LINEAR);
+
+
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+		std::cout << "framebuffer incomplete!\n";
+		abort();
+	}
+
+
 	int count = 0;
 	bool pressed = false;
 	string type = "sand";
+	float fade = 0.0f;
+	bool running = true;
+
 	while (!glfwWindowShouldClose(window)) {  
+
+		if (running) {
+			if (fade < 1.0f) {
+				fade += 0.00025f;
+			}
+		}
+		else {
+			if (fade > 0.0f) {
+				fade -= 0.00025f;
+			}
+			else {
+				break;
+			}
+		}
+
 		if (glfwGetKey(window, GLFW_KEY_R)) {
 			particles.clear();
 			cout << "reset";
@@ -1135,6 +1221,9 @@ int main(void) {
 		glUniform3f(light_location, lightPos[0], lightPos[1], lightPos[2]);
 
 		//camera.camera_from_world = glm::translate(camera.camera_from_world, glm::vec3(0.0f, 0.0f, 0.0001f));
+		if (glfwGetKey(window, GLFW_KEY_ESCAPE)) {
+			running = false;
+		}
 
 		if (glfwGetKey(window, GLFW_KEY_UP)) {
 			camera.camera_from_world = glm::translate(camera.camera_from_world, glm::vec3(0.0f, -0.01f, 0.0f));
@@ -1209,11 +1298,45 @@ int main(void) {
 			//cout << "part #: " << particles.size() << " | time: " << passed << endl;
 		}
 
+
+		/*
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		render_scene(shader_program, sky_shader_program, window, cubemap, particles, camera);
+		*/
+		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+		render_scene(shader_program, sky_shader_program, window, cubemap, particles, camera);
+
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		
+		{	
+			glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+			glUseProgram(postprocess_shader_program);
+			GLint tex_location = glGetUniformLocation(postprocess_shader_program, "tex");
+			glUniform1i(tex_location, 13); // GL_TEXTURE4
+
+			GLint fade_location = glGetUniformLocation(postprocess_shader_program, "fade");
+			glUniform1f(fade_location, fade);
+
+			models[2].draw();
+		}
+		
+
+		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
 
-	cleanup(window, shader_program, sky_shader_program, models, &textures);
+	glDeleteTextures(textures.size(), &(textures)[0]);
+	glDeleteFramebuffers(1, &fbo);
+	glDeleteProgram(shader_program);
+	glDeleteProgram(sky_shader_program);
+	for (Model model : models) {
+		model.cleanup();
+	}
+
+	glfwTerminate();
+
 	return 0;
 }
 

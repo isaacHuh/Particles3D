@@ -162,6 +162,8 @@
     <ResourceCompile Include="project1.rc" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="post.frag" />
+    <None Include="post.vert" />
     <None Include="shader.frag" />
     <None Include="shader.vert" />
     <None Include="sky.frag" />
