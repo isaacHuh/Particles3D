@@ -1,3 +1,11 @@
+/*
+	- ARROW KEYS to move camera
+	- 1,2,3 keys to change spawning type (rock, water, lava)
+	- SPACE to spawn block
+	- R to erase blocks and reset
+	- ESCAPE to end demo
+*/
+
 #define GLEW_STATIC
 #define STB_IMAGE_IMPLEMENTATION
 
