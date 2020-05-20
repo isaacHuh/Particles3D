@@ -1,3 +1,33 @@
-- Diffuse Map
-- Specular Map
-- Normal Map
+Controls:
+	- ARROW KEYS to move camera
+		- careful moving up and down when no blocks
+		have been spawned as you may move the camera out of
+		scope of viewing blocks and not know it
+	- 1,2,3 keys to change spawning type (rock, water, lava)
+	- SPACE to spawn block
+	- R to erase blocks and reset
+	- ESCAPE to end demo
+
+Objectives
+- Intro: Fade into scene
+
+- Main Content: 
+	- Use the controls above to spawn blocks 
+	that interact with each other in 
+	different ways
+
+	- Blocks check collision with other blocks and
+	detection was optimized to use a simplified form of
+	spatial partitioning and assign whether to render the
+	block as blocks that are surrounded by other blocks don't 
+	need to be rendered or check collision
+	
+	- Different visual effect is used for water
+
+	- Blocks behave differently depending on type of block
+
+	- water and lava blocks colliding creates smoke
+
+	- rock blocks sink to the bottom and displaces water and lava
+
+- Outro: Fade out of scene after pressing ESCAPE

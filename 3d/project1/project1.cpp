@@ -1085,74 +1085,34 @@ int main(void) {
 	//glm::mat4 world_from_model = glm::mat4(1.0); // init to the identity matrix
 	
 	//Initialize framebuffers
+	
 	GLuint fbo;
 	glGenFramebuffers(1, &fbo);
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-
-	//initialize color buffer
-	GLuint fbo_color;
-	glGenTextures(1, &fbo_color);
-	glActiveTexture(GL_TEXTURE13);
-	glBindTexture(GL_TEXTURE_2D, fbo_color);
-
 	int width, height;
 	glfwGetWindowSize(window, &width, &height);
-	
-	glTexImage2D(GL_TEXTURE_2D, 
-		0, 
-		GL_RGB, 
-		width, 
-		height, 
-		0,
-		GL_RGB,
-		GL_UNSIGNED_BYTE,
-		nullptr);
-
-	glFramebufferTexture2D(GL_FRAMEBUFFER,
-		GL_COLOR_ATTACHMENT0,
-		GL_TEXTURE_2D,
-		fbo_color,
-		0);
-
-	glTexParameteri(GL_TEXTURE_2D,
-		GL_TEXTURE_MIN_FILTER,
-		GL_LINEAR);
-
-	glTexParameteri(GL_TEXTURE_2D,
-		GL_TEXTURE_MAG_FILTER,
-		GL_LINEAR);
-
 
 	//initialize depth buffer
+
 	GLuint fbo_depth;
 	glGenTextures(1, &fbo_depth);
-	glActiveTexture(GL_TEXTURE14);
+	glActiveTexture(GL_TEXTURE16); // Let's just stick it in the specular slot for now, we'll update it later
 	glBindTexture(GL_TEXTURE_2D, fbo_depth);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, width, height, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, nullptr);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, fbo_depth, 0);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-	glTexImage2D(GL_TEXTURE_2D,
-		0,
-		GL_DEPTH24_STENCIL8,
-		width,
-		height,
-		0,
-		GL_DEPTH_STENCIL,
-		GL_UNSIGNED_INT_24_8,
-		nullptr);
+	//initialize color buffer
 
-	glFramebufferTexture2D(GL_FRAMEBUFFER,
-		GL_DEPTH_STENCIL_ATTACHMENT,
-		GL_TEXTURE_2D,
-		fbo_depth,
-		0);
-
-	glTexParameteri(GL_TEXTURE_2D,
-		GL_TEXTURE_MIN_FILTER,
-		GL_LINEAR);
-
-	glTexParameteri(GL_TEXTURE_2D,
-		GL_TEXTURE_MAG_FILTER,
-		GL_LINEAR);
-
+	GLuint fbo_color;
+	glGenTextures(1, &fbo_color);
+	glActiveTexture(GL_TEXTURE15);
+	glBindTexture(GL_TEXTURE_2D, fbo_color);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo_color, 0);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
 		std::cout << "framebuffer incomplete!\n";
@@ -1165,6 +1125,10 @@ int main(void) {
 	string type = "sand";
 	float fade = 0.0f;
 	bool running = true;
+
+	// doing this once before makes it work right so fuck it
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	render_scene(shader_program, sky_shader_program, window, cubemap, particles, camera);
 
 	while (!glfwWindowShouldClose(window)) {  
 
@@ -1305,24 +1269,20 @@ int main(void) {
 
 			//cout << "part #: " << particles.size() << " | time: " << passed << endl;
 		}
-
-
-		/*
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		render_scene(shader_program, sky_shader_program, window, cubemap, particles, camera);
-		*/
+		
 		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 		render_scene(shader_program, sky_shader_program, window, cubemap, particles, camera);
 
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		
-		{	
+
+		{
+
+			glUseProgram(postprocess_shader_program);
 			glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-			glUseProgram(postprocess_shader_program);
 			GLint tex_location = glGetUniformLocation(postprocess_shader_program, "tex");
-			glUniform1i(tex_location, 13); // GL_TEXTURE4
+			glUniform1i(tex_location, 15); // GL_TEXTURE4
 
 			GLint fade_location = glGetUniformLocation(postprocess_shader_program, "fade");
 			glUniform1f(fade_location, fade);
