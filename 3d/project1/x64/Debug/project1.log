@@ -8,6 +8,6 @@ C:\Users\Isaac Torres PC\Desktop\Particles3D\3d\project1\project1.cpp(1007,17): 
           [
               T=float
           ]
-C:\Users\Isaac Torres PC\Desktop\Particles3D\3d\project1\project1.cpp(1302,50): warning C4267: 'argument': conversion from 'size_t' to 'GLsizei', possible loss of data
+C:\Users\Isaac Torres PC\Desktop\Particles3D\3d\project1\project1.cpp(1298,50): warning C4267: 'argument': conversion from 'size_t' to 'GLsizei', possible loss of data
 C:\Users\Isaac Torres PC\Desktop\Particles3D\3d\project1\project1.cpp(844): warning C4715: 'particles_move_collision': not all control paths return a value
   project1.vcxproj -> C:\Users\Isaac Torres PC\Desktop\Particles3D\3d\x64\Debug\project1.exe
